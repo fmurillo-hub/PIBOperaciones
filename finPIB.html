@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Qué país sigue cada trayectoria?</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f7;color:#142338;font:16px/1.5 system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:28px 18px 50px}header{background:#132840;color:white;padding:24px 30px;border-radius:18px;margin-bottom:18px}h1{font-size:clamp(1.7rem,4vw,2.8rem);margin:0;line-height:1.15}header p{margin:10px 0 0;color:#dce8fa}.layout{display:grid;grid-template-columns:minmax(0,2.4fr) minmax(245px,1fr);gap:18px}.panel{border:1px solid #d8e1ed;border-radius:16px;background:white;padding:18px}h2{font-size:1.15rem;margin:0}.unit{color:#485c73;font-size:.87rem;margin:3px 0 12px}.plot{overflow-x:auto}svg{display:block;width:100%;min-width:510px;height:auto}svg text{font-family:system-ui,sans-serif}form{display:grid;gap:10px;margin-top:12px}.row{display:grid;grid-template-columns:34px 1fr;gap:6px;align-items:center}.badge{color:white;text-align:center;border-radius:6px;font-weight:bold;padding:5px}.row small{grid-column:2;color:#3c5067}select,button{font:inherit;border-radius:8px;padding:7px;border:1px solid #a9b9cb;background:white;color:#142338;min-width:0}button{cursor:pointer;font-weight:650}button[type=submit]{background:#153652;color:white;border-color:#153652}.actions{display:flex;gap:8px;flex-wrap:wrap}.result{margin:0;min-height:1.5em;font-weight:650}details{margin-top:18px;color:#3c5067}summary{cursor:pointer}a{color:#125585}@media(max-width:760px){.layout{grid-template-columns:1fr}}
+</style>
+<main>
+<header><h1>¿Qué país sigue cada trayectoria?</h1><p>Asigna un país a cada línea. Elige entre seis países. Solo tres corresponden a las líneas. Luego comprueba tus respuestas.</p></header>
+<div class="layout">
+<section class="panel"><h2>PIB real por habitante · 1948–2025</h2><p class="unit">Dólares internacionales de 2011, ajustados por poder adquisitivo. 2025 estimado.</p><div class="plot"><svg id="chart" viewBox="0 0 720 420" role="img" aria-label="Tres trayectorias anónimas de PIB real por habitante desde 1948"></svg></div></section>
+<section class="panel"><h2>Tus respuestas</h2><form id="quiz"><div id="choices" style="display:grid;gap:9px"></div><div class="actions"><button type="submit">Comprobar</button><button type="reset">Reiniciar</button></div><p id="result" class="result" aria-live="polite"></p></form></section>
+</div>
+<details><summary>Fuentes y metodología</summary><p>Cada punto representa un año seleccionado. Los valores históricos son de <a href="https://www.rug.nl/ggdc/historicaldevelopment/maddison/releases/maddison-project-database-2023">Maddison Project Database 2023</a>. Para estimar 2025 se multiplicó el nivel de 2022 por el cambio del <a href="https://data.worldbank.org/indicator/NY.GDP.PCAP.KD">PIB real por habitante del Banco Mundial</a> entre 2022 y 2025. Los valores de 2025 se redondearon a la centena.</p></details>
+</main>
+<script>
+const years = [1948,1960,1980,2000,2010,2020,2022,2025];
+const lines = [
+  {name:'Japón', color:'#3456aa', values:[2857,6354,21404,33211,35011,36827,38269,39500]},
+  {name:'Corea del Sur', color:'#007260', values:[1099,1548,6064,23108,31538,38607,41321,43200]},
+  {name:'Costa Rica', color:'#b22e62', values:[3339,4328,7828,9320,12032,13996,15497,17400]}
+];
+const letters = 'ABC';
+const number = new Intl.NumberFormat('es-EC');
+const chart = document.querySelector('#chart');
+const choices = document.querySelector('#choices');
+const quiz = document.querySelector('#quiz');
+const result = document.querySelector('#result');
+const x = year => 63 + (year - 1948) / 77 * 592;
+const y = value => 376 - value / 45000 * 350;
+function svg(tag, attributes, content) {
+  const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attributes).forEach(([key,value]) => element.setAttribute(key,value));
+  if (content !== undefined) element.textContent = content;
+  return element;
+}
+for (let value = 0; value <= 40000; value += 10000) {
+  chart.append(svg('line',{x1:63,x2:655,y1:y(value),y2:y(value),stroke:'#d8e1ed'}));
+  chart.append(svg('text',{x:54,y:y(value)+5,'text-anchor':'end',fill:'#42566e','font-size':14},number.format(value)));
+}
+for (const year of [1948,1960,1980,2000,2010,2025]) {
+  chart.append(svg('text',{x:x(year),y:400,'text-anchor':'middle',fill:'#42566e','font-size':14},year));
+}
+const names = [...lines.map(line => line.name), 'Brasil', 'España', 'México'].sort((a,b) => a.localeCompare(b,'es'));
+const labels = [];
+const rows = [];
+const labelPositions = [];
+let lastLabelY = 8;
+for (const index of lines.map((_,i) => i).sort((a,b) => lines[b].values[7]-lines[a].values[7])) {
+  const labelY = Math.max(y(lines[index].values[7]),lastLabelY+21);
+  labelPositions[index] = labelY;
+  lastLabelY = labelY;
+}
+lines.forEach((line,index) => {
+  const letter = letters[index];
+  const points = line.values.map((value,i) => [x(years[i]),y(value)]);
+  chart.append(svg('polyline',{points:points.map(point => point.join(',')).join(' '),fill:'none',stroke:line.color,'stroke-width':3,'stroke-linejoin':'round'}));
+  points.forEach(([px,py],i) => {
+    const dot = svg('circle',{cx:px,cy:py,r:4,fill:line.color,stroke:'white','stroke-width':1});
+    dot.append(svg('title',{},letter+' · '+years[i]+' · '+number.format(line.values[i])));
+    chart.append(dot);
+  });
+  const endY = points[7][1];
+  const labelY = labelPositions[index];
+  chart.append(svg('line',{x1:659,x2:674,y1:endY,y2:labelY,stroke:line.color}));
+  const label = svg('text',{x:679,y:labelY+5,fill:line.color,'font-size':15,'font-weight':750},letter);
+  chart.append(label);
+  labels.push(label);
+
+  const row = document.createElement('div');
+  row.className = 'row';
+  const badge = document.createElement('label');
+  badge.htmlFor = 'answer-'+letter;
+  badge.className = 'badge';
+  badge.style.background = line.color;
+  badge.textContent = letter;
+  const select = document.createElement('select');
+  select.id = badge.htmlFor;
+  select.setAttribute('aria-label','País para la trayectoria '+letter);
+  select.required = true;
+  select.add(new Option('Elige un país',''));
+  names.forEach(name => select.add(new Option(name,name)));
+  const feedback = document.createElement('small');
+  row.append(badge,select,feedback);
+  choices.append(row);
+  rows.push({select,feedback});
+});
+function clearFeedback() {
+  result.textContent = '';
+  rows.forEach(({feedback},i) => {
+    feedback.textContent = '';
+    labels[i].textContent = letters[i];
+  });
+}
+quiz.addEventListener('change',clearFeedback);
+quiz.addEventListener('reset',clearFeedback);
+quiz.addEventListener('submit',event => {
+  event.preventDefault();
+  const guesses = rows.map(row => row.select.value);
+  if (new Set(guesses).size !== lines.length) {
+    result.textContent = 'Usa cada país una sola vez.';
+    return;
+  }
+  let score = 0;
+  lines.forEach((line,i) => {
+    const correct = guesses[i] === line.name;
+    score += Number(correct);
+    rows[i].feedback.textContent = correct ? 'Correcto' : 'Respuesta: '+line.name;
+  });
+  result.textContent = score+' de '+lines.length+' aciertos';
+});
+</script>
+</html>
